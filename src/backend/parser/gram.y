@@ -143,18 +143,17 @@ typedef struct GroupClause
 } GroupClause;
 
 /* Private structs for the result of key_actions and key_action productions */
-typedef struct KeyActions
-{
-	struct KeyAction *updateAction;
-	struct KeyAction *deleteAction;
-} KeyActions;
-
 typedef struct KeyAction
 {
 	char action;
 	List *cols;
 } KeyAction;
 
+typedef struct KeyActions
+{
+	KeyAction *updateAction;
+	KeyAction *deleteAction;
+} KeyActions;
 
 /* ConstraintAttributeSpec yields an integer bitmask of these flags: */
 #define CAS_NOT_DEFERRABLE			0x01
@@ -275,8 +274,8 @@ static Node *makeRecursiveViewSelect(char *relname, List *aliases, Node *query);
 	struct SelectLimit	*selectlimit;
 	SetQuantifier	 setquantifier;
 	struct GroupClause  *groupclause;
-	struct KeyActions   *keyactions;
-	struct KeyAction    *keyaction;
+	struct KeyActions	*keyactions;
+	struct KeyAction	*keyaction;
 }
 
 %type <node>	stmt toplevel_stmt schema_stmt routine_body_stmt
@@ -3703,8 +3702,6 @@ ColConstraintElem:
 					n->fk_attrs = NIL;
 					n->pk_attrs = $3;
 					n->fk_matchtype = $4;
-					n->fk_upd_action = (char) ($5 >> 8);
-					n->fk_del_action = (char) ($5 & 0xFF);
 					n->fk_upd_action = ($5)->updateAction->action;
 					n->fk_upd_set_cols = ($5)->updateAction->cols;
 					n->fk_del_action = ($5)->deleteAction->action;
@@ -4035,12 +4032,12 @@ key_actions:
             | /*EMPTY*/
                 {
 					KeyActions *n = (KeyActions *) palloc(sizeof(KeyActions));
-                    n->updateAction = (KeyAction *) palloc(sizeof(KeyAction));
-                    n->updateAction->action = FKCONSTR_ACTION_NOACTION;
-                    n->updateAction->cols = NIL;
-                    n->deleteAction = (KeyAction *) palloc(sizeof(KeyAction));
-                    n->deleteAction->action = FKCONSTR_ACTION_NOACTION;
-                    n->deleteAction->cols = NIL;
+					n->updateAction = (KeyAction *) palloc(sizeof(KeyAction));
+					n->updateAction->action = FKCONSTR_ACTION_NOACTION;
+					n->updateAction->cols = NIL;
+					n->deleteAction = (KeyAction *) palloc(sizeof(KeyAction));
+					n->deleteAction->action = FKCONSTR_ACTION_NOACTION;
+					n->deleteAction->cols = NIL;
 					$$ = n;
                 }
 		;
