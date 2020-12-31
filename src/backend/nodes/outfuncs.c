@@ -2872,6 +2872,26 @@ _outPLAssignStmt(StringInfo str, const PLAssignStmt *node)
 }
 
 static void
+_outAlterTableStmt(StringInfo str, const AlterTableStmt *node)
+{
+  WRITE_NODE_TYPE("ALTERTABLE");
+
+  WRITE_NODE_FIELD(relation);
+  WRITE_NODE_FIELD(cmds);
+  WRITE_BOOL_FIELD(missing_ok);
+}
+
+static void
+_outAlterTableCmd(StringInfo str, const AlterTableCmd *node)
+{
+  WRITE_NODE_TYPE("ALTERTABLE_CMD");
+
+  WRITE_STRING_FIELD(name);
+  WRITE_NODE_FIELD(def);
+  WRITE_BOOL_FIELD(missing_ok);
+}
+
+static void
 _outFuncCall(StringInfo str, const FuncCall *node)
 {
 	WRITE_NODE_TYPE("FUNCCALL");
@@ -4373,6 +4393,12 @@ outNode(StringInfo str, const void *obj)
 				break;
 			case T_PLAssignStmt:
 				_outPLAssignStmt(str, obj);
+				break;
+			case T_AlterTableStmt:
+				_outAlterTableStmt(str, obj);
+				break;
+			case T_AlterTableCmd:
+				_outAlterTableCmd(str, obj);
 				break;
 			case T_ColumnDef:
 				_outColumnDef(str, obj);
