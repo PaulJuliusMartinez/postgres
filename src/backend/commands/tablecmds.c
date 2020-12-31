@@ -483,6 +483,10 @@ static ObjectAddress addFkRecurseReferenced(List **wqueue, Constraint *fkconstra
 											int numfks, int16 *pkattnum, int16 *fkattnum,
 											Oid *pfeqoperators, Oid *ppeqoperators, Oid *ffeqoperators,
 											bool old_check_ok);
+static void validateFkActionSetColumns(int numfks, int16 *fkattnums,
+									   int numfksetcols, int16 *fksetcolsattnums,
+									   List *fksetcols,
+									   char *trigger);
 static void addFkRecurseReferencing(List **wqueue, Constraint *fkconstraint,
 									Relation rel, Relation pkrel, Oid indexOid, Oid parentConstr,
 									int numfks, int16 *pkattnum, int16 *fkattnum,
@@ -8961,9 +8965,13 @@ ATAddForeignKeyConstraint(List **wqueue, AlteredTableInfo *tab, Relation rel,
 	Oid			pfeqoperators[INDEX_MAX_KEYS];
 	Oid			ppeqoperators[INDEX_MAX_KEYS];
 	Oid			ffeqoperators[INDEX_MAX_KEYS];
+	int16		fkupdsetcols[INDEX_MAX_KEYS];
+	int16		fkdelsetcols[INDEX_MAX_KEYS];
 	int			i;
 	int			numfks,
-				numpks;
+				numpks,
+				numfkupdsetcols,
+				numfkdelsetcols;
 	Oid			indexOid;
 	bool		old_check_ok;
 	ObjectAddress address;
@@ -9059,10 +9067,26 @@ ATAddForeignKeyConstraint(List **wqueue, AlteredTableInfo *tab, Relation rel,
 	MemSet(pfeqoperators, 0, sizeof(pfeqoperators));
 	MemSet(ppeqoperators, 0, sizeof(ppeqoperators));
 	MemSet(ffeqoperators, 0, sizeof(ffeqoperators));
+	MemSet(fkupdsetcols, 0, sizeof(fkupdsetcols));
+	MemSet(fkdelsetcols, 0, sizeof(fkdelsetcols));
 
 	numfks = transformColumnNameList(RelationGetRelid(rel),
 									 fkconstraint->fk_attrs,
 									 fkattnum, fktypoid);
+
+	numfkupdsetcols = transformColumnNameList(RelationGetRelid(rel),
+											  fkconstraint->fk_upd_set_cols,
+											  fkupdsetcols, NULL);
+	validateFkActionSetColumns(numfks, fkattnum,
+							   numfkupdsetcols, fkupdsetcols,
+							   fkconstraint->fk_upd_set_cols, "UPDATE");
+
+	numfkdelsetcols = transformColumnNameList(RelationGetRelid(rel),
+											  fkconstraint->fk_del_set_cols,
+											  fkdelsetcols, NULL);
+	validateFkActionSetColumns(numfks, fkattnum,
+							   numfkdelsetcols, fkdelsetcols,
+							   fkconstraint->fk_del_set_cols, "DELETE");
 
 	/*
 	 * If the attribute list for the referenced table was omitted, lookup the
@@ -9359,6 +9383,36 @@ ATAddForeignKeyConstraint(List **wqueue, AlteredTableInfo *tab, Relation rel,
 	table_close(pkrel, NoLock);
 
 	return address;
+}
+
+/*
+ * validateFkActionSetColumns
+ *	   Verifies that columns used in ON UPDATE/DELETE SET NULL/DEFAULT (...)
+ *     column lists are valid.
+ */
+void validateFkActionSetColumns(
+	int numfks, int16 *fkattnums,
+	int numfksetcols, int16 *fksetcolsattnums,
+	List *fksetcols,
+	char *trigger)
+{
+	for (int i = 0; i < numfksetcols; i++) {
+		int setcol_attnum = fksetcolsattnums[i];
+		bool seen = false;
+		for (int j = 0; j < numfks; j++) {
+			if (fkattnums[j] == setcol_attnum) {
+				seen = true;
+				break;
+			}
+		}
+
+		if (!seen) {
+			char *col = strVal(list_nth(fksetcols, i));
+			ereport(ERROR,
+			        (errcode(ERRCODE_INVALID_COLUMN_REFERENCE),
+			        errmsg("column \"%s\" referenced in ON %s SET action must be part of foreign key", col, trigger)));
+		}
+	}
 }
 
 /*
@@ -10792,7 +10846,7 @@ ATExecValidateConstraint(List **wqueue, Relation rel, char *constrName,
 /*
  * transformColumnNameList - transform list of column names
  *
- * Lookup each name and return its attnum and type OID
+ * Lookup each name and return its attnum and, if needed, type OID
  */
 static int
 transformColumnNameList(Oid relId, List *colList,
@@ -10819,7 +10873,8 @@ transformColumnNameList(Oid relId, List *colList,
 					 errmsg("cannot have more than %d keys in a foreign key",
 							INDEX_MAX_KEYS)));
 		attnums[attnum] = ((Form_pg_attribute) GETSTRUCT(atttuple))->attnum;
-		atttypids[attnum] = ((Form_pg_attribute) GETSTRUCT(atttuple))->atttypid;
+		if (atttypids != NULL)
+			atttypids[attnum] = ((Form_pg_attribute) GETSTRUCT(atttuple))->atttypid;
 		ReleaseSysCache(atttuple);
 		attnum++;
 	}
