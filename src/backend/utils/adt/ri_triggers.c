@@ -1066,7 +1066,6 @@ ri_set(TriggerData *trigdata, bool is_set_null, int tgkind)
 	if ((qplan = ri_FetchPreparedPlan(&qkey)) == NULL)
 	{
 		StringInfoData querybuf;
-		StringInfoData qualbuf;
 		char		fkrelname[MAX_QUOTED_REL_NAME_LEN];
 		char		attname[MAX_QUOTED_NAME_LEN];
 		char		paramname[16];
@@ -1074,20 +1073,29 @@ ri_set(TriggerData *trigdata, bool is_set_null, int tgkind)
 		const char *qualsep;
 		Oid			queryoids[RI_MAX_NUMKEYS];
 		const char *fk_only;
-		int num_set_cols;
+		int num_cols_to_set;
 		const int16 *set_cols;
 
 		switch (tgkind) {
 			case RI_TRIGTYPE_UPDATE:
-				num_set_cols = riinfo->nupdsetcols;
+				num_cols_to_set = riinfo->nupdsetcols;
 				set_cols = riinfo->confupdsetcols;
 				break;
 			case RI_TRIGTYPE_DELETE:
-				num_set_cols = riinfo->ndelsetcols;
+				num_cols_to_set = riinfo->ndelsetcols;
 				set_cols = riinfo->confdelsetcols;
 				break;
 			default:
 				elog(ERROR, "invalid tgkind passed to ri_set");
+		}
+
+		/*
+		 * If confupdsetcols or confdelsetcols is non-empty, then we only
+		 * update the columns specified in that array.
+		 */
+		if (num_cols_to_set == 0) {
+			num_cols_to_set = riinfo->nkeys;
+			set_cols = riinfo->fk_attnums;
 		}
 
 		/* ----------
@@ -1099,54 +1107,38 @@ ri_set(TriggerData *trigdata, bool is_set_null, int tgkind)
 		 * ----------
 		 */
 		initStringInfo(&querybuf);
-		initStringInfo(&qualbuf);
 		fk_only = fk_rel->rd_rel->relkind == RELKIND_PARTITIONED_TABLE ?
 			"" : "ONLY ";
 		quoteRelationName(fkrelname, fk_rel);
 		appendStringInfo(&querybuf, "UPDATE %s%s SET",
 						 fk_only, fkrelname);
+
+		// Add assignment clauses
 		querysep = "";
+		for (int i = 0; i < num_cols_to_set; i++)
+		{
+			quoteOneName(attname, RIAttName(fk_rel, set_cols[i]));
+			appendStringInfo(&querybuf,
+							 "%s %s = %s",
+							 querysep, attname,
+							 is_set_null ? "NULL" : "DEFAULT");
+			querysep = ",";
+		}
+
+		// Add WHERE clause
 		qualsep = "WHERE";
 		for (int i = 0; i < riinfo->nkeys; i++)
 		{
-			int		fk_col_attnum = riinfo->fk_attnums[i];
 			Oid		pk_type = RIAttType(pk_rel, riinfo->pk_attnums[i]);
 			Oid		fk_type = RIAttType(fk_rel, riinfo->fk_attnums[i]);
 			Oid		pk_coll = RIAttCollation(pk_rel, riinfo->pk_attnums[i]);
 			Oid		fk_coll = RIAttCollation(fk_rel, riinfo->fk_attnums[i]);
-			bool	col_gets_set = true;
-
-			/*
-			 * If confupdsetcols or confdelsetcols is non-empty, then we only
-			 * update the columns specified in that array.
-			 */
-			if (num_set_cols > 0)
-			{
-				col_gets_set = false;
-				for (int j = 0; j < num_set_cols; j++)
-				{
-					if (fk_col_attnum == set_cols[j])
-					{
-						col_gets_set = true;
-						break;
-					}
-				}
-			}
 
 			quoteOneName(attname,
 						 RIAttName(fk_rel, riinfo->fk_attnums[i]));
 
-			if (col_gets_set)
-			{
-				appendStringInfo(&querybuf,
-								 "%s %s = %s",
-								 querysep, attname,
-								 is_set_null ? "NULL" : "DEFAULT");
-				querysep = ",";
-			}
-
 			sprintf(paramname, "$%d", i + 1);
-			ri_GenerateQual(&qualbuf, qualsep,
+			ri_GenerateQual(&querybuf, qualsep,
 							paramname, pk_type,
 							riinfo->pf_eq_oprs[i],
 							attname, fk_type);
@@ -1155,7 +1147,6 @@ ri_set(TriggerData *trigdata, bool is_set_null, int tgkind)
 			qualsep = "AND";
 			queryoids[i] = pk_type;
 		}
-		appendBinaryStringInfo(&querybuf, qualbuf.data, qualbuf.len);
 
 		/* Prepare and save the plan */
 		qplan = ri_PlanCheck(querybuf.data, riinfo->nkeys, queryoids,
