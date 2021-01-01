@@ -184,7 +184,7 @@ static bool ri_Check_Pk_Match(Relation pk_rel, Relation fk_rel,
 							  TupleTableSlot *oldslot,
 							  const RI_ConstraintInfo *riinfo);
 static Datum ri_restrict(TriggerData *trigdata, bool is_no_action);
-static Datum ri_set(TriggerData *trigdata, bool is_set_null);
+static Datum ri_set(TriggerData *trigdata, bool is_set_null, int tgkind);
 static void quoteOneName(char *buffer, const char *name);
 static void quoteRelationName(char *buffer, Relation rel);
 static void ri_GenerateQual(StringInfo buf,
@@ -974,7 +974,7 @@ RI_FKey_setnull_del(PG_FUNCTION_ARGS)
 	ri_CheckTrigger(fcinfo, "RI_FKey_setnull_del", RI_TRIGTYPE_DELETE);
 
 	/* Share code with UPDATE case */
-	return ri_set((TriggerData *) fcinfo->context, true);
+	return ri_set((TriggerData *) fcinfo->context, true, RI_TRIGTYPE_DELETE);
 }
 
 /*
@@ -989,7 +989,7 @@ RI_FKey_setnull_upd(PG_FUNCTION_ARGS)
 	ri_CheckTrigger(fcinfo, "RI_FKey_setnull_upd", RI_TRIGTYPE_UPDATE);
 
 	/* Share code with DELETE case */
-	return ri_set((TriggerData *) fcinfo->context, true);
+	return ri_set((TriggerData *) fcinfo->context, true, RI_TRIGTYPE_UPDATE);
 }
 
 /*
@@ -1004,7 +1004,7 @@ RI_FKey_setdefault_del(PG_FUNCTION_ARGS)
 	ri_CheckTrigger(fcinfo, "RI_FKey_setdefault_del", RI_TRIGTYPE_DELETE);
 
 	/* Share code with UPDATE case */
-	return ri_set((TriggerData *) fcinfo->context, false);
+	return ri_set((TriggerData *) fcinfo->context, false, RI_TRIGTYPE_DELETE);
 }
 
 /*
@@ -1019,7 +1019,7 @@ RI_FKey_setdefault_upd(PG_FUNCTION_ARGS)
 	ri_CheckTrigger(fcinfo, "RI_FKey_setdefault_upd", RI_TRIGTYPE_UPDATE);
 
 	/* Share code with DELETE case */
-	return ri_set((TriggerData *) fcinfo->context, false);
+	return ri_set((TriggerData *) fcinfo->context, false, RI_TRIGTYPE_UPDATE);
 }
 
 /*
@@ -1029,7 +1029,7 @@ RI_FKey_setdefault_upd(PG_FUNCTION_ARGS)
  * NULL, and ON UPDATE SET DEFAULT.
  */
 static Datum
-ri_set(TriggerData *trigdata, bool is_set_null)
+ri_set(TriggerData *trigdata, bool is_set_null, int tgkind)
 {
 	const RI_ConstraintInfo *riinfo;
 	Relation	fk_rel;
@@ -1074,6 +1074,21 @@ ri_set(TriggerData *trigdata, bool is_set_null)
 		const char *qualsep;
 		Oid			queryoids[RI_MAX_NUMKEYS];
 		const char *fk_only;
+		int num_set_cols;
+		const int16 *set_cols;
+
+		switch (tgkind) {
+			case RI_TRIGTYPE_UPDATE:
+				num_set_cols = riinfo->nupdsetcols;
+				set_cols = riinfo->confupdsetcols;
+				break;
+			case RI_TRIGTYPE_DELETE:
+				num_set_cols = riinfo->ndelsetcols;
+				set_cols = riinfo->confdelsetcols;
+				break;
+			default:
+				elog(ERROR, "invalid tgkind passed to ri_set");
+		}
 
 		/* ----------
 		 * The query string built is
@@ -1094,17 +1109,42 @@ ri_set(TriggerData *trigdata, bool is_set_null)
 		qualsep = "WHERE";
 		for (int i = 0; i < riinfo->nkeys; i++)
 		{
-			Oid			pk_type = RIAttType(pk_rel, riinfo->pk_attnums[i]);
-			Oid			fk_type = RIAttType(fk_rel, riinfo->fk_attnums[i]);
-			Oid			pk_coll = RIAttCollation(pk_rel, riinfo->pk_attnums[i]);
-			Oid			fk_coll = RIAttCollation(fk_rel, riinfo->fk_attnums[i]);
+			int		fk_col_attnum = riinfo->fk_attnums[i];
+			Oid		pk_type = RIAttType(pk_rel, riinfo->pk_attnums[i]);
+			Oid		fk_type = RIAttType(fk_rel, riinfo->fk_attnums[i]);
+			Oid		pk_coll = RIAttCollation(pk_rel, riinfo->pk_attnums[i]);
+			Oid		fk_coll = RIAttCollation(fk_rel, riinfo->fk_attnums[i]);
+			bool	col_gets_set = true;
+
+			/*
+			 * If confupdsetcols or confdelsetcols is non-empty, then we only
+			 * update the columns specified in that array.
+			 */
+			if (num_set_cols > 0)
+			{
+				col_gets_set = false;
+				for (int j = 0; j < num_set_cols; j++)
+				{
+					if (fk_col_attnum == set_cols[j])
+					{
+						col_gets_set = true;
+						break;
+					}
+				}
+			}
 
 			quoteOneName(attname,
 						 RIAttName(fk_rel, riinfo->fk_attnums[i]));
-			appendStringInfo(&querybuf,
-							 "%s %s = %s",
-							 querysep, attname,
-							 is_set_null ? "NULL" : "DEFAULT");
+
+			if (col_gets_set)
+			{
+				appendStringInfo(&querybuf,
+								 "%s %s = %s",
+								 querysep, attname,
+								 is_set_null ? "NULL" : "DEFAULT");
+				querysep = ",";
+			}
+
 			sprintf(paramname, "$%d", i + 1);
 			ri_GenerateQual(&qualbuf, qualsep,
 							paramname, pk_type,
@@ -1112,7 +1152,6 @@ ri_set(TriggerData *trigdata, bool is_set_null)
 							attname, fk_type);
 			if (pk_coll != fk_coll && !get_collation_isdeterministic(pk_coll))
 				ri_GenerateQualCollation(&querybuf, pk_coll);
-			querysep = ",";
 			qualsep = "AND";
 			queryoids[i] = pk_type;
 		}
