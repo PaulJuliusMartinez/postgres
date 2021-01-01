@@ -88,6 +88,8 @@ CreateConstraintEntry(const char *constraintName,
 	ArrayType  *conppeqopArray;
 	ArrayType  *conffeqopArray;
 	ArrayType  *conexclopArray;
+	ArrayType  *confupdsetcolsArray;
+	ArrayType  *confdelsetcolsArray;
 	NameData	cname;
 	int			i;
 	ObjectAddress conobject;
@@ -136,6 +138,10 @@ CreateConstraintEntry(const char *constraintName,
 			fkdatums[i] = ObjectIdGetDatum(ffEqOp[i]);
 		conffeqopArray = construct_array(fkdatums, foreignNKeys,
 										 OIDOID, sizeof(Oid), true, TYPALIGN_INT);
+
+		// TODO (paulmtz): Actually construct arrays here.
+		confupdsetcolsArray = construct_array(NULL, 0, INT2OID, 2, true, TYPALIGN_SHORT);
+		confdelsetcolsArray = construct_array(NULL, 0, INT2OID, 2, true, TYPALIGN_SHORT);
 	}
 	else
 	{
@@ -143,6 +149,8 @@ CreateConstraintEntry(const char *constraintName,
 		conpfeqopArray = NULL;
 		conppeqopArray = NULL;
 		conffeqopArray = NULL;
+		confupdsetcolsArray = NULL;
+		confdelsetcolsArray = NULL;
 	}
 
 	if (exclOp != NULL)
@@ -210,6 +218,16 @@ CreateConstraintEntry(const char *constraintName,
 		values[Anum_pg_constraint_conffeqop - 1] = PointerGetDatum(conffeqopArray);
 	else
 		nulls[Anum_pg_constraint_conffeqop - 1] = true;
+
+	if (confupdsetcolsArray)
+		values[Anum_pg_constraint_confupdsetcols - 1] = PointerGetDatum(confupdsetcolsArray);
+	else
+		nulls[Anum_pg_constraint_confupdsetcols - 1] = true;
+
+	if (confdelsetcolsArray)
+		values[Anum_pg_constraint_confdelsetcols - 1] = PointerGetDatum(confdelsetcolsArray);
+	else
+		nulls[Anum_pg_constraint_confdelsetcols - 1] = true;
 
 	if (conexclopArray)
 		values[Anum_pg_constraint_conexclop - 1] = PointerGetDatum(conexclopArray);
