@@ -9972,6 +9972,10 @@ CloneFkReferenced(Relation parentRel, Relation partitionRel)
 		Oid			conpfeqop[INDEX_MAX_KEYS];
 		Oid			conppeqop[INDEX_MAX_KEYS];
 		Oid			conffeqop[INDEX_MAX_KEYS];
+		int			numfkupdsetcols;
+		AttrNumber	confupdsetcols[INDEX_MAX_KEYS];
+		int			numfkdelsetcols;
+		AttrNumber	confdelsetcols[INDEX_MAX_KEYS];
 		Constraint *fkconstraint;
 
 		tuple = SearchSysCache1(CONSTROID, constrOid);
@@ -10004,7 +10008,11 @@ CloneFkReferenced(Relation parentRel, Relation partitionRel)
 								   confkey,
 								   conpfeqop,
 								   conppeqop,
-								   conffeqop);
+								   conffeqop,
+								   &numfkupdsetcols,
+								   confupdsetcols,
+								   &numfkdelsetcols,
+								   confdelsetcols);
 
 		for (int i = 0; i < numfks; i++)
 			mapped_confkey[i] = attmap->attnums[confkey[i] - 1];
@@ -10127,9 +10135,9 @@ CloneFkReferencing(List **wqueue, Relation parentRel, Relation partRel)
 		Oid			conpfeqop[INDEX_MAX_KEYS];
 		Oid			conppeqop[INDEX_MAX_KEYS];
 		Oid			conffeqop[INDEX_MAX_KEYS];
-		int			numfkupdsetcols = 0;
+		int			numfkupdsetcols;
 		AttrNumber	confupdsetcols[INDEX_MAX_KEYS];
-		int			numfkdelsetcols = 0;
+		int			numfkdelsetcols;
 		AttrNumber	confdelsetcols[INDEX_MAX_KEYS];
 		Constraint *fkconstraint;
 		bool		attached;
@@ -10162,7 +10170,9 @@ CloneFkReferencing(List **wqueue, Relation parentRel, Relation partRel)
 									   ShareRowExclusiveLock, NULL);
 
 		DeconstructFkConstraintRow(tuple, &numfks, conkey, confkey,
-								   conpfeqop, conppeqop, conffeqop);
+								   conpfeqop, conppeqop, conffeqop,
+								   &numfkupdsetcols, confupdsetcols,
+								   &numfkdelsetcols, confdelsetcols);
 		for (int i = 0; i < numfks; i++)
 			mapped_conkey[i] = attmap->attnums[conkey[i] - 1];
 
