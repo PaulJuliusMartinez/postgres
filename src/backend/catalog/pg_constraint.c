@@ -1183,13 +1183,15 @@ get_primary_key_attnos(Oid relid, bool deferrableOk, Oid *constraintOid)
 /*
  * Extract data from the pg_constraint tuple of a foreign-key constraint.
  *
- * All arguments save the first are output arguments; the last three of them
- * can be passed as NULL if caller doesn't need them.
+ * All arguments save the first are output arguments; fields other than
+ * numfks, conkey and confkey can be passed as NULL if caller doesn't need them.
  */
 void
 DeconstructFkConstraintRow(HeapTuple tuple, int *numfks,
 						   AttrNumber *conkey, AttrNumber *confkey,
-						   Oid *pf_eq_oprs, Oid *pp_eq_oprs, Oid *ff_eq_oprs)
+						   Oid *pf_eq_oprs, Oid *pp_eq_oprs, Oid *ff_eq_oprs,
+						   int *num_fk_upd_set_cols, AttrNumber *fk_upd_set_cols,
+						   int *num_fk_del_set_cols, AttrNumber *fk_del_set_cols)
 {
 	Oid			constrId;
 	Datum		adatum;
@@ -1284,6 +1286,44 @@ DeconstructFkConstraintRow(HeapTuple tuple, int *numfks,
 		memcpy(ff_eq_oprs, ARR_DATA_PTR(arr), numkeys * sizeof(Oid));
 		if ((Pointer) arr != DatumGetPointer(adatum))
 			pfree(arr);			/* free de-toasted copy, if any */
+	}
+
+	if (fk_upd_set_cols)
+	{
+		adatum = SysCacheGetAttr(CONSTROID, tuple,
+								 Anum_pg_constraint_confupdsetcols, &isNull);
+		if (isNull)
+			elog(ERROR, "null confupdsetcols for foreign-key constraint %u", constrId);
+		arr = DatumGetArrayTypeP(adatum);	/* ensure not toasted */
+		if (ARR_NDIM(arr) != 1 ||
+			ARR_HASNULL(arr) ||
+			ARR_ELEMTYPE(arr) != INT2OID)
+			elog(ERROR, "confupdsetcols is not a 1-D smallint array");
+		int num_update_cols = ARR_DIMS(arr)[0];
+		memcpy(fk_upd_set_cols, ARR_DATA_PTR(arr), num_update_cols * sizeof(int16));
+		if ((Pointer) arr != DatumGetPointer(adatum))
+			pfree(arr);				/* free de-toasted copy, if any */
+
+		*num_fk_upd_set_cols = num_update_cols;
+	}
+
+	if (fk_del_set_cols)
+	{
+		adatum = SysCacheGetAttr(CONSTROID, tuple,
+								 Anum_pg_constraint_confdelsetcols, &isNull);
+		if (isNull)
+			elog(ERROR, "null confdelsetcols for foreign-key constraint %u", constrId);
+		arr = DatumGetArrayTypeP(adatum);	/* ensure not toasted */
+		if (ARR_NDIM(arr) != 1 ||
+			ARR_HASNULL(arr) ||
+			ARR_ELEMTYPE(arr) != INT2OID)
+			elog(ERROR, "confdelsetcols is not a 1-D smallint array");
+		int num_delete_cols = ARR_DIMS(arr)[0];
+		memcpy(fk_del_set_cols, ARR_DATA_PTR(arr), num_delete_cols * sizeof(int16));
+		if ((Pointer) arr != DatumGetPointer(adatum))
+			pfree(arr);				/* free de-toasted copy, if any */
+
+		*num_fk_del_set_cols = num_delete_cols;
 	}
 
 	*numfks = numkeys;
