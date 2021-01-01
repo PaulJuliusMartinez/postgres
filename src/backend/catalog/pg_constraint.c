@@ -1290,17 +1290,21 @@ DeconstructFkConstraintRow(HeapTuple tuple, int *numfks,
 
 	if (fk_upd_set_cols)
 	{
+		int num_update_cols = 0;
 		adatum = SysCacheGetAttr(CONSTROID, tuple,
 								 Anum_pg_constraint_confupdsetcols, &isNull);
 		if (isNull)
 			elog(ERROR, "null confupdsetcols for foreign-key constraint %u", constrId);
 		arr = DatumGetArrayTypeP(adatum);	/* ensure not toasted */
-		if (ARR_NDIM(arr) != 1 ||
-			ARR_HASNULL(arr) ||
-			ARR_ELEMTYPE(arr) != INT2OID)
-			elog(ERROR, "confupdsetcols is not a 1-D smallint array");
-		int num_update_cols = ARR_DIMS(arr)[0];
-		memcpy(fk_upd_set_cols, ARR_DATA_PTR(arr), num_update_cols * sizeof(int16));
+		if (ARR_NDIM(arr) != 0)
+		{
+			if (ARR_NDIM(arr) != 1 ||
+				ARR_HASNULL(arr) ||
+				ARR_ELEMTYPE(arr) != INT2OID)
+				elog(ERROR, "confupdsetcols is not or an empty or 1-D smallint array");
+			num_update_cols = ARR_DIMS(arr)[0];
+			memcpy(fk_upd_set_cols, ARR_DATA_PTR(arr), num_update_cols * sizeof(int16));
+		}
 		if ((Pointer) arr != DatumGetPointer(adatum))
 			pfree(arr);				/* free de-toasted copy, if any */
 
@@ -1309,17 +1313,21 @@ DeconstructFkConstraintRow(HeapTuple tuple, int *numfks,
 
 	if (fk_del_set_cols)
 	{
+		int num_delete_cols = 0;
 		adatum = SysCacheGetAttr(CONSTROID, tuple,
 								 Anum_pg_constraint_confdelsetcols, &isNull);
 		if (isNull)
 			elog(ERROR, "null confdelsetcols for foreign-key constraint %u", constrId);
 		arr = DatumGetArrayTypeP(adatum);	/* ensure not toasted */
-		if (ARR_NDIM(arr) != 1 ||
-			ARR_HASNULL(arr) ||
-			ARR_ELEMTYPE(arr) != INT2OID)
-			elog(ERROR, "confdelsetcols is not a 1-D smallint array");
-		int num_delete_cols = ARR_DIMS(arr)[0];
-		memcpy(fk_del_set_cols, ARR_DATA_PTR(arr), num_delete_cols * sizeof(int16));
+		if (ARR_NDIM(arr) != 0)
+		{
+			if (ARR_NDIM(arr) != 1 ||
+				ARR_HASNULL(arr) ||
+				ARR_ELEMTYPE(arr) != INT2OID)
+				elog(ERROR, "confdelsetcols is not an empty or 1-D smallint array");
+			num_delete_cols = ARR_DIMS(arr)[0];
+			memcpy(fk_del_set_cols, ARR_DATA_PTR(arr), num_delete_cols * sizeof(int16));
+		}
 		if ((Pointer) arr != DatumGetPointer(adatum))
 			pfree(arr);				/* free de-toasted copy, if any */
 
