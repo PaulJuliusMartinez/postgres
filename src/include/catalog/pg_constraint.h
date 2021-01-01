@@ -139,6 +139,18 @@ CATALOG(pg_constraint,2606,ConstraintRelationId)
 	Oid			conffeqop[1] BKI_LOOKUP(pg_operator);
 
 	/*
+	 * If a foreign key with a ON UPDATE SET NULL/DEFAULT action, the subset
+	 * of conkey to updated. If empty, all columns should be updated.
+	 */
+	Oid			confupdsetcols[1];
+
+	/*
+	 * If a foreign key with a ON DELETE SET NULL/DEFAULT action, the subset
+	 * of conkey to updated. If empty, all columns should be updated.
+	 */
+	Oid			confdelsetcols[1];
+
+	/*
 	 * If an exclusion constraint, the OIDs of the exclusion operators for
 	 * each column of the constraint
 	 */
