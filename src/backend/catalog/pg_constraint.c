@@ -67,7 +67,11 @@ CreateConstraintEntry(const char *constraintName,
 					  const Oid *ffEqOp,
 					  int foreignNKeys,
 					  char foreignUpdateType,
+					  const int16 *fkUpdateSetCols,
+					  int numFkUpdateSetCols,
 					  char foreignDeleteType,
+					  const int16 *fkDeleteSetCols,
+					  int numFkDeleteSetCols,
 					  char foreignMatchType,
 					  const Oid *exclOp,
 					  Node *conExpr,
@@ -138,10 +142,14 @@ CreateConstraintEntry(const char *constraintName,
 			fkdatums[i] = ObjectIdGetDatum(ffEqOp[i]);
 		conffeqopArray = construct_array(fkdatums, foreignNKeys,
 										 OIDOID, sizeof(Oid), true, TYPALIGN_INT);
-
-		// TODO (paulmtz): Actually construct arrays here.
-		confupdsetcolsArray = construct_array(NULL, 0, INT2OID, 2, true, TYPALIGN_SHORT);
-		confdelsetcolsArray = construct_array(NULL, 0, INT2OID, 2, true, TYPALIGN_SHORT);
+		for (i = 0; i < numFkUpdateSetCols; i++)
+			fkdatums[i] = Int16GetDatum(fkUpdateSetCols[i]);
+		confupdsetcolsArray = construct_array(fkdatums, numFkUpdateSetCols,
+									   INT2OID, 2, true, TYPALIGN_SHORT);
+		for (i = 0; i < numFkDeleteSetCols; i++)
+			fkdatums[i] = Int16GetDatum(fkDeleteSetCols[i]);
+		confdelsetcolsArray = construct_array(fkdatums, numFkDeleteSetCols,
+									   INT2OID, 2, true, TYPALIGN_SHORT);
 	}
 	else
 	{
