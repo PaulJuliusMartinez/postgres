@@ -2878,6 +2878,7 @@ _outAlterTableStmt(StringInfo str, const AlterTableStmt *node)
 
   WRITE_NODE_FIELD(relation);
   WRITE_NODE_FIELD(cmds);
+  WRITE_ENUM_FIELD(objtype, ObjectType);
   WRITE_BOOL_FIELD(missing_ok);
 }
 
@@ -2886,9 +2887,24 @@ _outAlterTableCmd(StringInfo str, const AlterTableCmd *node)
 {
   WRITE_NODE_TYPE("ALTERTABLE_CMD");
 
+  WRITE_ENUM_FIELD(subtype, AlterTableType);
   WRITE_STRING_FIELD(name);
+  WRITE_NODE_FIELD(object);
+  WRITE_INT_FIELD(num);
+  WRITE_NODE_FIELD(newowner);
   WRITE_NODE_FIELD(def);
+  WRITE_ENUM_FIELD(behavior, DropBehavior);
   WRITE_BOOL_FIELD(missing_ok);
+}
+
+static void
+_outRoleSpec(StringInfo str, const RoleSpec *node)
+{
+  WRITE_NODE_TYPE("ROLE_SPEC");
+
+  WRITE_ENUM_FIELD(roletype, RoleSpecType);
+  WRITE_STRING_FIELD(rolename);
+  WRITE_INT_FIELD(location);
 }
 
 static void
@@ -4399,6 +4415,9 @@ outNode(StringInfo str, const void *obj)
 				break;
 			case T_AlterTableCmd:
 				_outAlterTableCmd(str, obj);
+				break;
+			case T_RoleSpec:
+				_outRoleSpec(str, obj);
 				break;
 			case T_ColumnDef:
 				_outColumnDef(str, obj);
