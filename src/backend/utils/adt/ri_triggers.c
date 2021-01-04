@@ -76,8 +76,11 @@
 #define RI_PLAN_CASCADE_DEL_DODELETE	3
 #define RI_PLAN_CASCADE_UPD_DOUPDATE	4
 #define RI_PLAN_RESTRICT_CHECKREF		5
-#define RI_PLAN_SETNULL_DOUPDATE		6
-#define RI_PLAN_SETDEFAULT_DOUPDATE		7
+
+#define RI_PLAN_ONUPDATE_SETNULL_DOUPDATE		6
+#define RI_PLAN_ONDELETE_SETNULL_DOUPDATE		7
+#define RI_PLAN_ONUPDATE_SETDEFAULT_DOUPDATE	8
+#define RI_PLAN_ONDELETE_SETDEFAULT_DOUPDATE	9
 
 #define MAX_QUOTED_NAME_LEN  (NAMEDATALEN*2+3)
 #define MAX_QUOTED_REL_NAME_LEN  (MAX_QUOTED_NAME_LEN*2)
@@ -1037,6 +1040,7 @@ ri_set(TriggerData *trigdata, bool is_set_null, int tgkind)
 	TupleTableSlot *oldslot;
 	RI_QueryKey qkey;
 	SPIPlanPtr	qplan;
+	int32		queryno;
 
 	riinfo = ri_FetchConstraintInfo(trigdata->tg_trigger,
 									trigdata->tg_relation, true);
@@ -1055,13 +1059,24 @@ ri_set(TriggerData *trigdata, bool is_set_null, int tgkind)
 		elog(ERROR, "SPI_connect failed");
 
 	/*
-	 * Fetch or prepare a saved plan for the set null/default operation (it's
-	 * the same query for delete and update cases)
+	 * Fetch or prepare a saved plan for the trigger.
 	 */
-	ri_BuildQueryKey(&qkey, riinfo,
-					 (is_set_null
-					  ? RI_PLAN_SETNULL_DOUPDATE
-					  : RI_PLAN_SETDEFAULT_DOUPDATE));
+	switch (tgkind) {
+		case RI_TRIGTYPE_UPDATE:
+			queryno = is_set_null
+				? RI_PLAN_ONUPDATE_SETNULL_DOUPDATE
+				: RI_PLAN_ONUPDATE_SETDEFAULT_DOUPDATE;
+			break;
+		case RI_TRIGTYPE_DELETE:
+			queryno = is_set_null
+				? RI_PLAN_ONDELETE_SETNULL_DOUPDATE
+				: RI_PLAN_ONDELETE_SETDEFAULT_DOUPDATE;
+			break;
+		default:
+			elog(ERROR, "invalid tgkind passed to ri_set");
+	}
+
+	ri_BuildQueryKey(&qkey, riinfo, queryno);
 
 	if ((qplan = ri_FetchPreparedPlan(&qkey)) == NULL)
 	{
