@@ -477,6 +477,8 @@ CREATE TABLE FKTABLE (
   FOREIGN KEY (tid, fk_id_del_set_default) REFERENCES PKTABLE ON DELETE SET DEFAULT (tid)
 );
 
+SELECT pg_get_constraintdef(oid) FROM pg_constraint WHERE conrelid = 'fktable'::regclass::oid ORDER BY oid;
+
 INSERT INTO PKTABLE VALUES (1, 0), (1, 1), (1, 2), (1, 3), (1, 4), (0, 4);
 INSERT INTO FKTABLE VALUES
   (1, 1, 1, NULL, NULL, NULL),
