@@ -759,6 +759,14 @@ DROP TABLE FKTABLE;
 DROP TABLE PKTABLE;
 -- Test for ON UPDATE/DELETE SET NULL/DEFAULT (column_list);
 CREATE TABLE PKTABLE (tid int, id int, PRIMARY KEY (tid, id));
+CREATE TABLE FKTABLE (tid int, id int, foo int, FOREIGN KEY (tid, id) REFERENCES PKTABLE ON UPDATE SET NULL (bar));
+ERROR:  column "bar" referenced in foreign key constraint does not exist
+CREATE TABLE FKTABLE (tid int, id int, foo int, FOREIGN KEY (tid, id) REFERENCES PKTABLE ON DELETE SET NULL (bar));
+ERROR:  column "bar" referenced in foreign key constraint does not exist
+CREATE TABLE FKTABLE (tid int, id int, foo int, FOREIGN KEY (tid, id) REFERENCES PKTABLE ON UPDATE SET NULL (foo));
+ERROR:  column "foo" referenced in ON UPDATE SET action must be part of foreign key
+CREATE TABLE FKTABLE (tid int, id int, foo int, FOREIGN KEY (tid, id) REFERENCES PKTABLE ON DELETE SET NULL (foo));
+ERROR:  column "foo" referenced in ON DELETE SET action must be part of foreign key
 CREATE TABLE FKTABLE (
   tid int DEFAULT 0, id int,
   fk_id_upd_set_null int,
