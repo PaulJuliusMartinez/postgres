@@ -463,36 +463,27 @@ SELECT * from FKTABLE;
 DROP TABLE FKTABLE;
 DROP TABLE PKTABLE;
 
--- Test for ON UPDATE/DELETE SET NULL/DEFAULT (column_list);
+-- Test for ON DELETE SET NULL/DEFAULT (column_list);
 CREATE TABLE PKTABLE (tid int, id int, PRIMARY KEY (tid, id));
-CREATE TABLE FKTABLE (tid int, id int, foo int, FOREIGN KEY (tid, id) REFERENCES PKTABLE ON UPDATE SET NULL (bar));
 CREATE TABLE FKTABLE (tid int, id int, foo int, FOREIGN KEY (tid, id) REFERENCES PKTABLE ON DELETE SET NULL (bar));
-CREATE TABLE FKTABLE (tid int, id int, foo int, FOREIGN KEY (tid, id) REFERENCES PKTABLE ON UPDATE SET NULL (foo));
 CREATE TABLE FKTABLE (tid int, id int, foo int, FOREIGN KEY (tid, id) REFERENCES PKTABLE ON DELETE SET NULL (foo));
+CREATE TABLE FKTABLE (tid int, id int, foo int, FOREIGN KEY (tid, foo) REFERENCES PKTABLE ON UPDATE SET NULL (foo));
 CREATE TABLE FKTABLE (
-  tid int DEFAULT 0, id int,
-  fk_id_upd_set_null int,
-  fk_id_upd_set_default int DEFAULT 0,
+  tid int, id int,
   fk_id_del_set_null int,
-  fk_id_del_set_default int,
-  FOREIGN KEY (tid, fk_id_upd_set_null) REFERENCES PKTABLE ON UPDATE SET NULL (fk_id_upd_set_null),
-  FOREIGN KEY (tid, fk_id_upd_set_default) REFERENCES PKTABLE ON UPDATE SET DEFAULT (fk_id_upd_set_default),
-  FOREIGN KEY (tid, fk_id_del_set_null) REFERENCES PKTABLE ON DELETE SET NULL (tid),
-  FOREIGN KEY (tid, fk_id_del_set_default) REFERENCES PKTABLE ON DELETE SET DEFAULT (tid)
+  fk_id_del_set_default int DEFAULT 0,
+  FOREIGN KEY (tid, fk_id_del_set_null) REFERENCES PKTABLE ON DELETE SET NULL (fk_id_del_set_null),
+  FOREIGN KEY (tid, fk_id_del_set_default) REFERENCES PKTABLE ON DELETE SET DEFAULT (fk_id_del_set_default)
 );
 
 SELECT pg_get_constraintdef(oid) FROM pg_constraint WHERE conrelid = 'fktable'::regclass::oid ORDER BY oid;
 
-INSERT INTO PKTABLE VALUES (1, 0), (1, 1), (1, 2), (1, 3), (1, 4), (0, 4);
+INSERT INTO PKTABLE VALUES (1, 0), (1, 1), (1, 2);
 INSERT INTO FKTABLE VALUES
-  (1, 1, 1, NULL, NULL, NULL),
-  (1, 2, NULL, 2, NULL, NULL),
-  (1, 3, NULL, NULL, 3, NULL),
-  (1, 4, NULL, NULL, NULL, 4);
+  (1, 1, 1, NULL),
+  (1, 2, NULL, 2);
 
-UPDATE PKTABLE SET id = 5 WHERE id = 1;
-UPDATE PKTABLE SET id = 6 WHERE id = 2;
-DELETE FROM PKTABLE WHERE tid = 1 AND (id = 3 OR id = 4);
+DELETE FROM PKTABLE WHERE id = 1 OR id = 2;
 
 SELECT * FROM FKTABLE ORDER BY id;
 
@@ -1320,29 +1311,26 @@ INSERT INTO fk_notpartitioned_pk VALUES (2501, 142857);
 UPDATE fk_notpartitioned_pk SET a = 1500 WHERE a = 2502;
 SELECT * FROM fk_partitioned_fk WHERE b = 142857;
 
--- ON UPDATE/DELETE SET NULL column_list
+-- ON DELETE SET NULL column_list
 ALTER TABLE fk_partitioned_fk DROP CONSTRAINT fk_partitioned_fk_a_b_fkey;
 ALTER TABLE fk_partitioned_fk ADD FOREIGN KEY (a, b)
   REFERENCES fk_notpartitioned_pk
-  ON DELETE SET NULL (a) ON UPDATE SET NULL (b);
+  ON DELETE SET NULL (a);
 BEGIN;
-INSERT INTO fk_partitioned_fk VALUES (1500, 2503);
-UPDATE fk_notpartitioned_pk SET b = 2504 WHERE a = 1500;
 DELETE FROM fk_notpartitioned_pk WHERE b = 142857;
 SELECT * FROM fk_partitioned_fk WHERE a IS NOT NULL OR b IS NOT NULL ORDER BY a NULLS LAST;
 ROLLBACK;
 
--- ON UPDATE/DELETE SET DEFAULT column_list
+-- ON DELETE SET DEFAULT column_list
 ALTER TABLE fk_partitioned_fk DROP CONSTRAINT fk_partitioned_fk_a_b_fkey;
 ALTER TABLE fk_partitioned_fk ADD FOREIGN KEY (a, b)
   REFERENCES fk_notpartitioned_pk
-  ON DELETE SET DEFAULT (a) ON UPDATE SET DEFAULT (b);
+  ON DELETE SET DEFAULT (a);
 BEGIN;
 DELETE FROM fk_partitioned_fk;
 DELETE FROM fk_notpartitioned_pk;
-INSERT INTO fk_notpartitioned_pk VALUES (500, 100000), (2501, 100000), (1500, 2503), (1500, 142857);
-INSERT INTO fk_partitioned_fk VALUES (500, 100000), (1500, 2503);
-UPDATE fk_notpartitioned_pk SET b = 2504 WHERE b = 2503;
+INSERT INTO fk_notpartitioned_pk VALUES (500, 100000), (2501, 100000);
+INSERT INTO fk_partitioned_fk VALUES (500, 100000);
 DELETE FROM fk_notpartitioned_pk WHERE a = 500;
 SELECT * FROM fk_partitioned_fk ORDER BY a;
 ROLLBACK;

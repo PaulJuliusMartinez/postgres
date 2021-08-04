@@ -483,18 +483,15 @@ static ObjectAddress addFkRecurseReferenced(List **wqueue, Constraint *fkconstra
 											Relation rel, Relation pkrel, Oid indexOid, Oid parentConstr,
 											int numfks, int16 *pkattnum, int16 *fkattnum,
 											Oid *pfeqoperators, Oid *ppeqoperators, Oid *ffeqoperators,
-											int numfkupdsetcols, int16 *fkupdsetcols,
 											int numfkdelsetcols, int16 *fkdelsetcols,
 											bool old_check_ok);
-static void validateFkActionSetColumns(int numfks, int16 *fkattnums,
+static void validateFkOnDeleteSetColumns(int numfks, int16 *fkattnums,
 									   int numfksetcols, int16 *fksetcolsattnums,
-									   List *fksetcols,
-									   char *trigger);
+									   List *fksetcols);
 static void addFkRecurseReferencing(List **wqueue, Constraint *fkconstraint,
 									Relation rel, Relation pkrel, Oid indexOid, Oid parentConstr,
 									int numfks, int16 *pkattnum, int16 *fkattnum,
 									Oid *pfeqoperators, Oid *ppeqoperators, Oid *ffeqoperators,
-									int numfkupdsetcols, int16 *fkupdsetcols,
 									int numfkdelsetcols, int16 *fkdelsetcols,
 									bool old_check_ok, LOCKMODE lockmode);
 static void CloneForeignKeyConstraints(List **wqueue, Relation parentRel,
@@ -8947,12 +8944,10 @@ ATAddForeignKeyConstraint(List **wqueue, AlteredTableInfo *tab, Relation rel,
 	Oid			pfeqoperators[INDEX_MAX_KEYS];
 	Oid			ppeqoperators[INDEX_MAX_KEYS];
 	Oid			ffeqoperators[INDEX_MAX_KEYS];
-	int16		fkupdsetcols[INDEX_MAX_KEYS];
 	int16		fkdelsetcols[INDEX_MAX_KEYS];
 	int			i;
 	int			numfks,
 				numpks,
-				numfkupdsetcols,
 				numfkdelsetcols;
 	Oid			indexOid;
 	bool		old_check_ok;
@@ -9049,26 +9044,18 @@ ATAddForeignKeyConstraint(List **wqueue, AlteredTableInfo *tab, Relation rel,
 	MemSet(pfeqoperators, 0, sizeof(pfeqoperators));
 	MemSet(ppeqoperators, 0, sizeof(ppeqoperators));
 	MemSet(ffeqoperators, 0, sizeof(ffeqoperators));
-	MemSet(fkupdsetcols, 0, sizeof(fkupdsetcols));
 	MemSet(fkdelsetcols, 0, sizeof(fkdelsetcols));
 
 	numfks = transformColumnNameList(RelationGetRelid(rel),
 									 fkconstraint->fk_attrs,
 									 fkattnum, fktypoid);
 
-	numfkupdsetcols = transformColumnNameList(RelationGetRelid(rel),
-											  fkconstraint->fk_upd_set_cols,
-											  fkupdsetcols, NULL);
-	validateFkActionSetColumns(numfks, fkattnum,
-							   numfkupdsetcols, fkupdsetcols,
-							   fkconstraint->fk_upd_set_cols, "UPDATE");
-
 	numfkdelsetcols = transformColumnNameList(RelationGetRelid(rel),
 											  fkconstraint->fk_del_set_cols,
 											  fkdelsetcols, NULL);
-	validateFkActionSetColumns(numfks, fkattnum,
+	validateFkOnDeleteSetColumns(numfks, fkattnum,
 							   numfkdelsetcols, fkdelsetcols,
-							   fkconstraint->fk_del_set_cols, "DELETE");
+							   fkconstraint->fk_del_set_cols);
 
 	/*
 	 * If the attribute list for the referenced table was omitted, lookup the
@@ -9344,8 +9331,6 @@ ATAddForeignKeyConstraint(List **wqueue, AlteredTableInfo *tab, Relation rel,
 									 pfeqoperators,
 									 ppeqoperators,
 									 ffeqoperators,
-									 numfkupdsetcols,
-									 fkupdsetcols,
 									 numfkdelsetcols,
 									 fkdelsetcols,
 									 old_check_ok);
@@ -9360,8 +9345,6 @@ ATAddForeignKeyConstraint(List **wqueue, AlteredTableInfo *tab, Relation rel,
 							pfeqoperators,
 							ppeqoperators,
 							ffeqoperators,
-							numfkupdsetcols,
-							fkupdsetcols,
 							numfkdelsetcols,
 							fkdelsetcols,
 							old_check_ok,
@@ -9377,14 +9360,13 @@ ATAddForeignKeyConstraint(List **wqueue, AlteredTableInfo *tab, Relation rel,
 
 /*
  * validateFkActionSetColumns
- *		Verifies that columns used in ON UPDATE/DELETE SET NULL/DEFAULT (...)
+ *		Verifies that columns used in ON DELETE SET NULL/DEFAULT (...)
  *		column lists are valid.
  */
-void validateFkActionSetColumns(
+void validateFkOnDeleteSetColumns(
 	int numfks, int16 *fkattnums,
 	int numfksetcols, int16 *fksetcolsattnums,
-	List *fksetcols,
-	char *trigger)
+	List *fksetcols)
 {
 	for (int i = 0; i < numfksetcols; i++) {
 		int setcol_attnum = fksetcolsattnums[i];
@@ -9400,7 +9382,7 @@ void validateFkActionSetColumns(
 			char *col = strVal(list_nth(fksetcols, i));
 			ereport(ERROR,
 			        (errcode(ERRCODE_INVALID_COLUMN_REFERENCE),
-			        errmsg("column \"%s\" referenced in ON %s SET action must be part of foreign key", col, trigger)));
+			        errmsg("column \"%s\" referenced in ON DELETE SET action must be part of foreign key", col)));
 		}
 	}
 }
@@ -9426,10 +9408,6 @@ void validateFkActionSetColumns(
  * numfks is the number of columns in the foreign key
  * pkattnum is the attnum array of referenced attributes.
  * fkattnum is the attnum array of referencing attributes.
- * numfkupdsetcols is the number of columns in the ON UPDATE SET NULL/DELETE
- *      (...) clause
- * fkupdsetcols is the attnum array of the columns in the ON UPDATE SET
- *      NULL/DELETE clause
  * numfkdelsetcols is the number of columns in the ON DELETE SET NULL/DELETE
  *      (...) clause
  * fkdelsetcols is the attnum array of the columns in the ON DELETE SET
@@ -9444,7 +9422,6 @@ addFkRecurseReferenced(List **wqueue, Constraint *fkconstraint, Relation rel,
 					   int numfks,
 					   int16 *pkattnum, int16 *fkattnum, Oid *pfeqoperators,
 					   Oid *ppeqoperators, Oid *ffeqoperators,
-					   int numfkupdsetcols, int16 *fkupdsetcols,
 					   int numfkdelsetcols, int16 *fkdelsetcols,
 					   bool old_check_ok)
 {
@@ -9520,8 +9497,6 @@ addFkRecurseReferenced(List **wqueue, Constraint *fkconstraint, Relation rel,
 									  ffeqoperators,
 									  numfks,
 									  fkconstraint->fk_upd_action,
-									  fkupdsetcols,
-									  numfkupdsetcols,
 									  fkconstraint->fk_del_action,
 									  fkdelsetcols,
 									  numfkdelsetcols,
@@ -9606,7 +9581,6 @@ addFkRecurseReferenced(List **wqueue, Constraint *fkconstraint, Relation rel,
 								   partIndexId, constrOid, numfks,
 								   mapped_pkattnum, fkattnum,
 								   pfeqoperators, ppeqoperators, ffeqoperators,
-								   numfkupdsetcols, fkupdsetcols,
 								   numfkdelsetcols, fkdelsetcols,
 								   old_check_ok);
 
@@ -9648,10 +9622,6 @@ addFkRecurseReferenced(List **wqueue, Constraint *fkconstraint, Relation rel,
  * pkattnum is the attnum array of referenced attributes.
  * fkattnum is the attnum array of referencing attributes.
  * pf/pp/ffeqoperators are OID array of operators between columns.
- * numfkupdsetcols is the number of columns in the ON UPDATE SET NULL/DELETE
- *      (...) clause
- * fkupdsetcols is the attnum array of the columns in the ON UPDATE SET
- *      NULL/DELETE clause
  * numfkdelsetcols is the number of columns in the ON DELETE SET NULL/DELETE
  *      (...) clause
  * fkdelsetcols is the attnum array of the columns in the ON DELETE SET
@@ -9665,7 +9635,6 @@ addFkRecurseReferencing(List **wqueue, Constraint *fkconstraint, Relation rel,
 						Relation pkrel, Oid indexOid, Oid parentConstr,
 						int numfks, int16 *pkattnum, int16 *fkattnum,
 						Oid *pfeqoperators, Oid *ppeqoperators, Oid *ffeqoperators,
-						int numfkupdsetcols, int16 *fkupdsetcols,
 						int numfkdelsetcols, int16 *fkdelsetcols,
 						bool old_check_ok, LOCKMODE lockmode)
 {
@@ -9804,8 +9773,6 @@ addFkRecurseReferencing(List **wqueue, Constraint *fkconstraint, Relation rel,
 									  ffeqoperators,
 									  numfks,
 									  fkconstraint->fk_upd_action,
-									  fkupdsetcols,
-									  numfkupdsetcols,
 									  fkconstraint->fk_del_action,
 									  fkdelsetcols,
 									  numfkdelsetcols,
@@ -9841,8 +9808,6 @@ addFkRecurseReferencing(List **wqueue, Constraint *fkconstraint, Relation rel,
 									pfeqoperators,
 									ppeqoperators,
 									ffeqoperators,
-									numfkupdsetcols,
-									fkupdsetcols,
 									numfkdelsetcols,
 									fkdelsetcols,
 									old_check_ok,
@@ -9950,8 +9915,6 @@ CloneFkReferenced(Relation parentRel, Relation partitionRel)
 		Oid			conpfeqop[INDEX_MAX_KEYS];
 		Oid			conppeqop[INDEX_MAX_KEYS];
 		Oid			conffeqop[INDEX_MAX_KEYS];
-		int			numfkupdsetcols;
-		AttrNumber	confupdsetcols[INDEX_MAX_KEYS];
 		int			numfkdelsetcols;
 		AttrNumber	confdelsetcols[INDEX_MAX_KEYS];
 		Constraint *fkconstraint;
@@ -9987,8 +9950,6 @@ CloneFkReferenced(Relation parentRel, Relation partitionRel)
 								   conpfeqop,
 								   conppeqop,
 								   conffeqop,
-								   &numfkupdsetcols,
-								   confupdsetcols,
 								   &numfkdelsetcols,
 								   confdelsetcols);
 
@@ -10037,12 +9998,8 @@ CloneFkReferenced(Relation parentRel, Relation partitionRel)
 							   conpfeqop,
 							   conppeqop,
 							   conffeqop,
-							   // TODO (paulmtz): Extract fk_{upd,del}_set_col values
-							   // and use them here.
-							   0,
-							   NULL,
-							   0,
-							   NULL,
+							   numfkdelsetcols,
+							   confdelsetcols,
 							   true);
 
 		table_close(fkRel, NoLock);
@@ -10113,8 +10070,6 @@ CloneFkReferencing(List **wqueue, Relation parentRel, Relation partRel)
 		Oid			conpfeqop[INDEX_MAX_KEYS];
 		Oid			conppeqop[INDEX_MAX_KEYS];
 		Oid			conffeqop[INDEX_MAX_KEYS];
-		int			numfkupdsetcols;
-		AttrNumber	confupdsetcols[INDEX_MAX_KEYS];
 		int			numfkdelsetcols;
 		AttrNumber	confdelsetcols[INDEX_MAX_KEYS];
 		Constraint *fkconstraint;
@@ -10149,7 +10104,6 @@ CloneFkReferencing(List **wqueue, Relation parentRel, Relation partRel)
 
 		DeconstructFkConstraintRow(tuple, &numfks, conkey, confkey,
 								   conpfeqop, conppeqop, conffeqop,
-								   &numfkupdsetcols, confupdsetcols,
 								   &numfkdelsetcols, confdelsetcols);
 		for (int i = 0; i < numfks; i++)
 			mapped_conkey[i] = attmap->attnums[conkey[i] - 1];
@@ -10234,8 +10188,6 @@ CloneFkReferencing(List **wqueue, Relation parentRel, Relation partRel)
 								  conffeqop,
 								  numfks,
 								  fkconstraint->fk_upd_action,
-								  confupdsetcols,
-								  numfkupdsetcols,
 								  fkconstraint->fk_del_action,
 								  confdelsetcols,
 								  numfkdelsetcols,
@@ -10274,8 +10226,6 @@ CloneFkReferencing(List **wqueue, Relation parentRel, Relation partRel)
 								conpfeqop,
 								conppeqop,
 								conffeqop,
-								numfkupdsetcols,
-								confupdsetcols,
 								numfkdelsetcols,
 								confdelsetcols,
 								false,	/* no old check exists */
