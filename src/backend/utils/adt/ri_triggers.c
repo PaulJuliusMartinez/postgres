@@ -112,10 +112,10 @@ typedef struct RI_ConstraintInfo
 	Oid			pk_relid;		/* referenced relation */
 	Oid			fk_relid;		/* referencing relation */
 	char		confupdtype;	/* foreign key's ON UPDATE action */
-	int			nupdsetcols;	/* number of columns refereced in ON UPDATE SET clause */
+	int			nupdsetcols;	/* number of columns referenced in ON UPDATE SET clause */
 	int16		confupdsetcols[RI_MAX_NUMKEYS]; /* attnums of cols to set on update */
 	char		confdeltype;	/* foreign key's ON DELETE action */
-	int			ndelsetcols;	/* number of columns refereced in ON DELETE SET clause */
+	int			ndelsetcols;	/* number of columns referenced in ON DELETE SET clause */
 	int16		confdelsetcols[RI_MAX_NUMKEYS]; /* attnums of cols to set on delete */
 	char		confmatchtype;	/* foreign key's match type */
 	int			nkeys;			/* number of key columns */

@@ -9377,8 +9377,8 @@ ATAddForeignKeyConstraint(List **wqueue, AlteredTableInfo *tab, Relation rel,
 
 /*
  * validateFkActionSetColumns
- *	   Verifies that columns used in ON UPDATE/DELETE SET NULL/DEFAULT (...)
- *     column lists are valid.
+ *		Verifies that columns used in ON UPDATE/DELETE SET NULL/DEFAULT (...)
+ *		column lists are valid.
  */
 void validateFkActionSetColumns(
 	int numfks, int16 *fkattnums,
@@ -9430,9 +9430,9 @@ void validateFkActionSetColumns(
  *      (...) clause
  * fkupdsetcols is the attnum array of the columns in the ON UPDATE SET
  *      NULL/DELETE clause
- * numfkdelsetcols is the number of columns in the ON delATE SET NULL/DELETE
+ * numfkdelsetcols is the number of columns in the ON DELETE SET NULL/DELETE
  *      (...) clause
- * fkdelsetcols is the attnum array of the columns in the ON delATE SET
+ * fkdelsetcols is the attnum array of the columns in the ON DELETE SET
  *      NULL/DELETE clause
  * pf/pp/ffeqoperators are OID array of operators between columns.
  * old_check_ok signals that this constraint replaces an existing one that
@@ -9652,9 +9652,9 @@ addFkRecurseReferenced(List **wqueue, Constraint *fkconstraint, Relation rel,
  *      (...) clause
  * fkupdsetcols is the attnum array of the columns in the ON UPDATE SET
  *      NULL/DELETE clause
- * numfkdelsetcols is the number of columns in the ON delATE SET NULL/DELETE
+ * numfkdelsetcols is the number of columns in the ON DELETE SET NULL/DELETE
  *      (...) clause
- * fkdelsetcols is the attnum array of the columns in the ON delATE SET
+ * fkdelsetcols is the attnum array of the columns in the ON DELETE SET
  *      NULL/DELETE clause
  * old_check_ok signals that this constraint replaces an existing one that
  *		was already validated (thus this one doesn't need validation).
@@ -10238,7 +10238,7 @@ CloneFkReferencing(List **wqueue, Relation parentRel, Relation partRel)
 								  numfkupdsetcols,
 								  fkconstraint->fk_del_action,
 								  confdelsetcols,
-								  numfkupdsetcols,
+								  numfkdelsetcols,
 								  fkconstraint->fk_matchtype,
 								  NULL,
 								  NULL,
