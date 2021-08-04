@@ -2236,12 +2236,6 @@ pg_get_constraintdef_worker(Oid constraintId, bool fullCommand,
 
 				/* Add ON UPDATE and ON DELETE clauses, if needed */
 
-				val = SysCacheGetAttr(CONSTROID, tup,
-									  Anum_pg_constraint_confupdsetcols, &isnull);
-				if (isnull)
-					elog(ERROR, "null confupdsetcols for foreign key constraint %u",
-						 constraintId);
-
 				switch (conForm->confupdtype)
 				{
 					case FKCONSTR_ACTION_NOACTION:
@@ -2267,14 +2261,6 @@ pg_get_constraintdef_worker(Oid constraintId, bool fullCommand,
 				}
 				if (string)
 					appendStringInfo(&buf, " ON UPDATE %s", string);
-
-				/* Add columns specified to SET NULL or SET DEFAULT if provided. */
-				if (ARR_NDIM(DatumGetArrayTypeP(val)) > 0)
-				{
-					appendStringInfo(&buf, " (");
-					decompile_column_index_array(val, conForm->conrelid, &buf);
-					appendStringInfo(&buf, ")");
-				}
 
 				val = SysCacheGetAttr(CONSTROID, tup,
 									  Anum_pg_constraint_confdelsetcols, &isnull);

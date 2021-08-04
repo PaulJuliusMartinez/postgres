@@ -112,8 +112,6 @@ typedef struct RI_ConstraintInfo
 	Oid			pk_relid;		/* referenced relation */
 	Oid			fk_relid;		/* referencing relation */
 	char		confupdtype;	/* foreign key's ON UPDATE action */
-	int			nupdsetcols;	/* number of columns referenced in ON UPDATE SET clause */
-	int16		confupdsetcols[RI_MAX_NUMKEYS]; /* attnums of cols to set on update */
 	char		confdeltype;	/* foreign key's ON DELETE action */
 	int			ndelsetcols;	/* number of columns referenced in ON DELETE SET clause */
 	int16		confdelsetcols[RI_MAX_NUMKEYS]; /* attnums of cols to set on delete */
@@ -1093,24 +1091,26 @@ ri_set(TriggerData *trigdata, bool is_set_null, int tgkind)
 
 		switch (tgkind) {
 			case RI_TRIGTYPE_UPDATE:
-				num_cols_to_set = riinfo->nupdsetcols;
-				set_cols = riinfo->confupdsetcols;
+				num_cols_to_set = riinfo->nkeys;
+				set_cols = riinfo->fk_attnums;
 				break;
 			case RI_TRIGTYPE_DELETE:
-				num_cols_to_set = riinfo->ndelsetcols;
-				set_cols = riinfo->confdelsetcols;
+				/*
+				 * If confdelsetcols is non-empty, then we only update
+				 * the columns specified in that array, otherwise we
+				 * update all the referencing columns.
+				 */
+				if (riinfo->ndelsetcols != 0) {
+					num_cols_to_set = riinfo->ndelsetcols;
+					set_cols = riinfo->confdelsetcols;
+				}
+				else {
+					num_cols_to_set = riinfo->nkeys;
+					set_cols = riinfo->fk_attnums;
+				}
 				break;
 			default:
 				elog(ERROR, "invalid tgkind passed to ri_set");
-		}
-
-		/*
-		 * If confupdsetcols or confdelsetcols is non-empty, then we only
-		 * update the columns specified in that array.
-		 */
-		if (num_cols_to_set == 0) {
-			num_cols_to_set = riinfo->nkeys;
-			set_cols = riinfo->fk_attnums;
 		}
 
 		/* ----------
@@ -2148,8 +2148,6 @@ ri_LoadConstraintInfo(Oid constraintOid)
 							   riinfo->pf_eq_oprs,
 							   riinfo->pp_eq_oprs,
 							   riinfo->ff_eq_oprs,
-							   &riinfo->nupdsetcols,
-							   riinfo->confupdsetcols,
 							   &riinfo->ndelsetcols,
 							   riinfo->confdelsetcols);
 

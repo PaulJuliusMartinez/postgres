@@ -3708,7 +3708,11 @@ ColConstraintElem:
 					n->pk_attrs = $3;
 					n->fk_matchtype = $4;
 					n->fk_upd_action = ($5)->updateAction->action;
-					n->fk_upd_set_cols = ($5)->updateAction->cols;
+					if (($5)->updateAction->cols != NIL)
+						ereport(ERROR,
+								(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
+								 errmsg("SET NULL/DEFAULT <column_list> only supported for ON DELETE triggers"),
+								 parser_errposition(@5)));
 					n->fk_del_action = ($5)->deleteAction->action;
 					n->fk_del_set_cols = ($5)->deleteAction->cols;
 					n->skip_validation = false;
@@ -3921,7 +3925,11 @@ ConstraintElem:
 					n->pk_attrs = $8;
 					n->fk_matchtype = $9;
 					n->fk_upd_action = ($10)->updateAction->action;
-					n->fk_upd_set_cols = ($10)->updateAction->cols;
+					if (($10)->updateAction->cols != NIL)
+						ereport(ERROR,
+								(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
+								 errmsg("SET NULL/DEFAULT <column_list> only supported for ON DELETE triggers"),
+								 parser_errposition(@10)));
 					n->fk_del_action = ($10)->deleteAction->action;
 					n->fk_del_set_cols = ($10)->deleteAction->cols;
 					processCASbits($11, @11, "FOREIGN KEY",
