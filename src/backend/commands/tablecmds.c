@@ -10059,12 +10059,10 @@ CloneFkReferenced(Relation parentRel, Relation partitionRel)
 							   conpfeqop,
 							   conppeqop,
 							   conffeqop,
-							   // TODO (paulmtz): Extract fk_{upd,del}_set_col values
-							   // and use them here.
-							   0,
-							   NULL,
-							   0,
-							   NULL,
+							   numfkupdsetcols,
+							   confupdsetcols,
+							   numfkdelsetcols,
+							   confdelsetcols,
 							   true);
 
 		table_close(fkRel, NoLock);
