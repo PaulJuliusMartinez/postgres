@@ -2289,14 +2289,9 @@ pg_get_constraintdef_worker(Oid constraintId, bool fullCommand,
 					appendStringInfo(&buf, " ON DELETE %s", string);
 
 				/* Add columns specified to SET NULL or SET DEFAULT if provided. */
-				// FIXME: use null instead of empty array for standard behavior
 				val = SysCacheGetAttr(CONSTROID, tup,
 									  Anum_pg_constraint_confdelsetcols, &isnull);
-				if (isnull)
-					elog(ERROR, "null confdelsetcols for constraint %u",
-						 constraintId);
-
-				if (ARR_NDIM(DatumGetArrayTypeP(val)) > 0)
+				if (!isnull)
 				{
 					appendStringInfo(&buf, " (");
 					decompile_column_index_array(val, conForm->conrelid, &buf);

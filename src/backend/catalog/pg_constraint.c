@@ -139,11 +139,16 @@ CreateConstraintEntry(const char *constraintName,
 			fkdatums[i] = ObjectIdGetDatum(ffEqOp[i]);
 		conffeqopArray = construct_array(fkdatums, foreignNKeys,
 										 OIDOID, sizeof(Oid), true, TYPALIGN_INT);
-		// FIXME: use null instead of empty array for standard behavior
-		for (i = 0; i < numFkDeleteSetCols; i++)
-			fkdatums[i] = Int16GetDatum(fkDeleteSetCols[i]);
-		confdelsetcolsArray = construct_array(fkdatums, numFkDeleteSetCols,
-									   INT2OID, 2, true, TYPALIGN_SHORT);
+
+		if (numFkDeleteSetCols > 0)
+		{
+			for (i = 0; i < numFkDeleteSetCols; i++)
+				fkdatums[i] = Int16GetDatum(fkDeleteSetCols[i]);
+			confdelsetcolsArray = construct_array(fkdatums, numFkDeleteSetCols,
+										   INT2OID, 2, true, TYPALIGN_SHORT);
+		}
+		else
+			confdelsetcolsArray = NULL;
 	}
 	else
 	{
@@ -1280,25 +1285,26 @@ DeconstructFkConstraintRow(HeapTuple tuple, int *numfks,
 	{
 		int num_delete_cols = 0;
 
-		// FIXME: use null instead of empty array for standard behavior
 		adatum = SysCacheGetAttr(CONSTROID, tuple,
 								 Anum_pg_constraint_confdelsetcols, &isNull);
 		if (isNull)
-			elog(ERROR, "null confdelsetcols for constraint %u", constrId);
-		arr = DatumGetArrayTypeP(adatum);	/* ensure not toasted */
-		if (ARR_NDIM(arr) != 0)
 		{
+			*num_fk_del_set_cols = 0;
+		}
+		else
+		{
+			arr = DatumGetArrayTypeP(adatum);	/* ensure not toasted */
 			if (ARR_NDIM(arr) != 1 ||
 				ARR_HASNULL(arr) ||
 				ARR_ELEMTYPE(arr) != INT2OID)
-				elog(ERROR, "confdelsetcols is not an empty or 1-D smallint array");
+				elog(ERROR, "confdelsetcols is not a 1-D smallint array");
 			num_delete_cols = ARR_DIMS(arr)[0];
 			memcpy(fk_del_set_cols, ARR_DATA_PTR(arr), num_delete_cols * sizeof(int16));
-		}
-		if ((Pointer) arr != DatumGetPointer(adatum))
-			pfree(arr);				/* free de-toasted copy, if any */
+			if ((Pointer) arr != DatumGetPointer(adatum))
+				pfree(arr);				/* free de-toasted copy, if any */
 
-		*num_fk_del_set_cols = num_delete_cols;
+			*num_fk_del_set_cols = num_delete_cols;
+		}
 	}
 
 	*numfks = numkeys;
