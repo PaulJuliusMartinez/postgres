@@ -9403,8 +9403,8 @@ void validateFkOnDeleteSetColumns(
 		if (!seen) {
 			char *col = strVal(list_nth(fksetcols, i));
 			ereport(ERROR,
-			        (errcode(ERRCODE_INVALID_COLUMN_REFERENCE),
-			        errmsg("column \"%s\" referenced in ON DELETE SET action must be part of foreign key", col)));
+					(errcode(ERRCODE_INVALID_COLUMN_REFERENCE),
+					 errmsg("column \"%s\" referenced in ON DELETE SET action must be part of foreign key", col)));
 		}
 	}
 }

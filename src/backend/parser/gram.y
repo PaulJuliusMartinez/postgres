@@ -4011,39 +4011,39 @@ OptWhereClause:
 
 key_actions:
 			key_update
-                {
+				{
 					KeyActions *n = (KeyActions *) palloc(sizeof(KeyActions));
-                    n->updateAction = $1;
-                    n->deleteAction = (KeyAction *) palloc(sizeof(KeyAction));
-                    n->deleteAction->action = FKCONSTR_ACTION_NOACTION;
-                    n->deleteAction->cols = NIL;
+					n->updateAction = $1;
+					n->deleteAction = (KeyAction *) palloc(sizeof(KeyAction));
+					n->deleteAction->action = FKCONSTR_ACTION_NOACTION;
+					n->deleteAction->cols = NIL;
 					$$ = n;
-                }
+				}
 			| key_delete
-                {
+				{
 					KeyActions *n = (KeyActions *) palloc(sizeof(KeyActions));
-                    n->updateAction = (KeyAction *) palloc(sizeof(KeyAction));
-                    n->updateAction->action = FKCONSTR_ACTION_NOACTION;
-                    n->updateAction->cols = NIL;
-                    n->deleteAction = $1;
+					n->updateAction = (KeyAction *) palloc(sizeof(KeyAction));
+					n->updateAction->action = FKCONSTR_ACTION_NOACTION;
+					n->updateAction->cols = NIL;
+					n->deleteAction = $1;
 					$$ = n;
-                }
+				}
 			| key_update key_delete
-                {
+				{
 					KeyActions *n = (KeyActions *) palloc(sizeof(KeyActions));
-                    n->updateAction = $1;
-                    n->deleteAction = $2;
+					n->updateAction = $1;
+					n->deleteAction = $2;
 					$$ = n;
-                }
+				}
 			| key_delete key_update
-                {
+				{
 					KeyActions *n = (KeyActions *) palloc(sizeof(KeyActions));
-                    n->updateAction = $2;
-                    n->deleteAction = $1;
+					n->updateAction = $2;
+					n->deleteAction = $1;
 					$$ = n;
-                }
-            | /*EMPTY*/
-                {
+				}
+			| /*EMPTY*/
+				{
 					KeyActions *n = (KeyActions *) palloc(sizeof(KeyActions));
 					n->updateAction = (KeyAction *) palloc(sizeof(KeyAction));
 					n->updateAction->action = FKCONSTR_ACTION_NOACTION;
@@ -4052,7 +4052,7 @@ key_actions:
 					n->deleteAction->action = FKCONSTR_ACTION_NOACTION;
 					n->deleteAction->cols = NIL;
 					$$ = n;
-                }
+				}
 		;
 
 key_update: ON UPDATE key_action		{ $$ = $3; }
@@ -4065,38 +4065,38 @@ key_action:
 			NO ACTION
 				{
 					KeyAction *n = (KeyAction *) palloc(sizeof(KeyAction));
-                    n->action = FKCONSTR_ACTION_NOACTION;
-                    n->cols = NIL;
-                    $$ = n;
-                }
+					n->action = FKCONSTR_ACTION_NOACTION;
+					n->cols = NIL;
+					$$ = n;
+				}
 			| RESTRICT
 				{
 					KeyAction *n = (KeyAction *) palloc(sizeof(KeyAction));
-                    n->action = FKCONSTR_ACTION_RESTRICT;
-                    n->cols = NIL;
-                    $$ = n;
-                }
+					n->action = FKCONSTR_ACTION_RESTRICT;
+					n->cols = NIL;
+					$$ = n;
+				}
 			| CASCADE
 				{
 					KeyAction *n = (KeyAction *) palloc(sizeof(KeyAction));
-                    n->action = FKCONSTR_ACTION_CASCADE;
-                    n->cols = NIL;
-                    $$ = n;
-                }
+					n->action = FKCONSTR_ACTION_CASCADE;
+					n->cols = NIL;
+					$$ = n;
+				}
 			| SET NULL_P opt_column_list
 				{
 					KeyAction *n = (KeyAction *) palloc(sizeof(KeyAction));
-                    n->action = FKCONSTR_ACTION_SETNULL;
-                    n->cols = $3;
-                    $$ = n;
-                }
+					n->action = FKCONSTR_ACTION_SETNULL;
+					n->cols = $3;
+					$$ = n;
+				}
 			| SET DEFAULT opt_column_list
 				{
 					KeyAction *n = (KeyAction *) palloc(sizeof(KeyAction));
-                    n->action = FKCONSTR_ACTION_SETDEFAULT;
-                    n->cols = $3;
-                    $$ = n;
-                }
+					n->action = FKCONSTR_ACTION_SETDEFAULT;
+					n->cols = $3;
+					$$ = n;
+				}
 		;
 
 OptInherit: INHERITS '(' qualified_name_list ')'	{ $$ = $3; }
