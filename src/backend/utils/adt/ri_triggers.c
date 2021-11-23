@@ -73,14 +73,14 @@
 #define RI_PLAN_CHECK_LOOKUPPK_FROM_PK	2
 #define RI_PLAN_LAST_ON_PK				RI_PLAN_CHECK_LOOKUPPK_FROM_PK
 /* these queries are executed against the FK (referencing) table: */
-#define RI_PLAN_ONDELETE_CASCADE		3
-#define RI_PLAN_ONUPDATE_CASCADE		4
+#define RI_PLAN_CASCADE_ONDELETE		3
+#define RI_PLAN_CASCADE_ONUPDATE		4
 /* the same plan can be used for both ON DELETE and ON UPDATE triggers. */
-#define RI_PLAN_ONTRIGGER_RESTRICT		5	// XXX confusing name
-#define RI_PLAN_ONDELETE_SETNULL		6
-#define RI_PLAN_ONUPDATE_SETNULL		7
-#define RI_PLAN_ONDELETE_SETDEFAULT		8
-#define RI_PLAN_ONUPDATE_SETDEFAULT		9
+#define RI_PLAN_RESTRICT			5
+#define RI_PLAN_SETNULL_ONDELETE		6
+#define RI_PLAN_SETNULL_ONUPDATE		7
+#define RI_PLAN_SETDEFAULT_ONDELETE		8
+#define RI_PLAN_SETDEFAULT_ONUPDATE		9
 
 #define MAX_QUOTED_NAME_LEN  (NAMEDATALEN*2+3)
 #define MAX_QUOTED_REL_NAME_LEN  (MAX_QUOTED_NAME_LEN*2)
@@ -665,7 +665,7 @@ ri_restrict(TriggerData *trigdata, bool is_no_action)
 	 * Fetch or prepare a saved plan for the restrict lookup (it's the same
 	 * query for delete and update cases)
 	 */
-	ri_BuildQueryKey(&qkey, riinfo, RI_PLAN_ONTRIGGER_RESTRICT);
+	ri_BuildQueryKey(&qkey, riinfo, RI_PLAN_RESTRICT);
 
 	if ((qplan = ri_FetchPreparedPlan(&qkey)) == NULL)
 	{
@@ -772,7 +772,7 @@ RI_FKey_cascade_del(PG_FUNCTION_ARGS)
 		elog(ERROR, "SPI_connect failed");
 
 	/* Fetch or prepare a saved plan for the cascaded delete */
-	ri_BuildQueryKey(&qkey, riinfo, RI_PLAN_ONDELETE_CASCADE);
+	ri_BuildQueryKey(&qkey, riinfo, RI_PLAN_CASCADE_ONDELETE);
 
 	if ((qplan = ri_FetchPreparedPlan(&qkey)) == NULL)
 	{
@@ -881,7 +881,7 @@ RI_FKey_cascade_upd(PG_FUNCTION_ARGS)
 		elog(ERROR, "SPI_connect failed");
 
 	/* Fetch or prepare a saved plan for the cascaded update */
-	ri_BuildQueryKey(&qkey, riinfo, RI_PLAN_ONUPDATE_CASCADE);
+	ri_BuildQueryKey(&qkey, riinfo, RI_PLAN_CASCADE_ONUPDATE);
 
 	if ((qplan = ri_FetchPreparedPlan(&qkey)) == NULL)
 	{
@@ -1062,13 +1062,13 @@ ri_set(TriggerData *trigdata, bool is_set_null, int tgkind)
 	switch (tgkind) {
 		case RI_TRIGTYPE_UPDATE:
 			queryno = is_set_null
-				? RI_PLAN_ONUPDATE_SETNULL
-				: RI_PLAN_ONUPDATE_SETDEFAULT;
+				? RI_PLAN_SETNULL_ONUPDATE
+				: RI_PLAN_SETDEFAULT_ONUPDATE;
 			break;
 		case RI_TRIGTYPE_DELETE:
 			queryno = is_set_null
-				? RI_PLAN_ONDELETE_SETNULL
-				: RI_PLAN_ONDELETE_SETDEFAULT;
+				? RI_PLAN_SETNULL_ONDELETE
+				: RI_PLAN_SETDEFAULT_ONDELETE;
 			break;
 		default:
 			elog(ERROR, "invalid tgkind passed to ri_set");
