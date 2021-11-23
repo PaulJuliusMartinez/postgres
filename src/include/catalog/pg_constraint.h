@@ -142,7 +142,7 @@ CATALOG(pg_constraint,2606,ConstraintRelationId)
 	 * If a foreign key with an ON DELETE SET NULL/DEFAULT action, the subset
 	 * of conkey to updated. If empty, all columns should be updated.
 	 */
-	Oid			confdelsetcols[1];
+	int16		confdelsetcols[1];
 
 	/*
 	 * If an exclusion constraint, the OIDs of the exclusion operators for

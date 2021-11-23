@@ -2262,12 +2262,6 @@ pg_get_constraintdef_worker(Oid constraintId, bool fullCommand,
 				if (string)
 					appendStringInfo(&buf, " ON UPDATE %s", string);
 
-				val = SysCacheGetAttr(CONSTROID, tup,
-									  Anum_pg_constraint_confdelsetcols, &isnull);
-				if (isnull)
-					elog(ERROR, "null confdelsetcols for foreign key constraint %u",
-						 constraintId);
-
 				switch (conForm->confdeltype)
 				{
 					case FKCONSTR_ACTION_NOACTION:
@@ -2295,6 +2289,13 @@ pg_get_constraintdef_worker(Oid constraintId, bool fullCommand,
 					appendStringInfo(&buf, " ON DELETE %s", string);
 
 				/* Add columns specified to SET NULL or SET DEFAULT if provided. */
+				// FIXME: use null instead of empty array for standard behavior
+				val = SysCacheGetAttr(CONSTROID, tup,
+									  Anum_pg_constraint_confdelsetcols, &isnull);
+				if (isnull)
+					elog(ERROR, "null confdelsetcols for constraint %u",
+						 constraintId);
+
 				if (ARR_NDIM(DatumGetArrayTypeP(val)) > 0)
 				{
 					appendStringInfo(&buf, " (");

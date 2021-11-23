@@ -3708,11 +3708,6 @@ ColConstraintElem:
 					n->pk_attrs = $3;
 					n->fk_matchtype = $4;
 					n->fk_upd_action = ($5)->updateAction->action;
-					if (($5)->updateAction->cols != NIL)
-						ereport(ERROR,
-								(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
-								 errmsg("SET NULL/DEFAULT <column_list> only supported for ON DELETE triggers"),
-								 parser_errposition(@5)));
 					n->fk_del_action = ($5)->deleteAction->action;
 					n->fk_del_set_cols = ($5)->deleteAction->cols;
 					n->skip_validation = false;
@@ -3925,11 +3920,6 @@ ConstraintElem:
 					n->pk_attrs = $8;
 					n->fk_matchtype = $9;
 					n->fk_upd_action = ($10)->updateAction->action;
-					if (($10)->updateAction->cols != NIL)
-						ereport(ERROR,
-								(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
-								 errmsg("SET NULL/DEFAULT <column_list> only supported for ON DELETE triggers"),
-								 parser_errposition(@10)));
 					n->fk_del_action = ($10)->deleteAction->action;
 					n->fk_del_set_cols = ($10)->deleteAction->cols;
 					processCASbits($11, @11, "FOREIGN KEY",
@@ -4012,17 +4002,17 @@ OptWhereClause:
 key_actions:
 			key_update
 				{
-					KeyActions *n = (KeyActions *) palloc(sizeof(KeyActions));
+					KeyActions *n = palloc(sizeof(KeyActions));
 					n->updateAction = $1;
-					n->deleteAction = (KeyAction *) palloc(sizeof(KeyAction));
+					n->deleteAction = palloc(sizeof(KeyAction));
 					n->deleteAction->action = FKCONSTR_ACTION_NOACTION;
 					n->deleteAction->cols = NIL;
 					$$ = n;
 				}
 			| key_delete
 				{
-					KeyActions *n = (KeyActions *) palloc(sizeof(KeyActions));
-					n->updateAction = (KeyAction *) palloc(sizeof(KeyAction));
+					KeyActions *n = palloc(sizeof(KeyActions));
+					n->updateAction = palloc(sizeof(KeyAction));
 					n->updateAction->action = FKCONSTR_ACTION_NOACTION;
 					n->updateAction->cols = NIL;
 					n->deleteAction = $1;
@@ -4030,69 +4020,81 @@ key_actions:
 				}
 			| key_update key_delete
 				{
-					KeyActions *n = (KeyActions *) palloc(sizeof(KeyActions));
+					KeyActions *n = palloc(sizeof(KeyActions));
 					n->updateAction = $1;
 					n->deleteAction = $2;
 					$$ = n;
 				}
 			| key_delete key_update
 				{
-					KeyActions *n = (KeyActions *) palloc(sizeof(KeyActions));
+					KeyActions *n = palloc(sizeof(KeyActions));
 					n->updateAction = $2;
 					n->deleteAction = $1;
 					$$ = n;
 				}
 			| /*EMPTY*/
 				{
-					KeyActions *n = (KeyActions *) palloc(sizeof(KeyActions));
-					n->updateAction = (KeyAction *) palloc(sizeof(KeyAction));
+					KeyActions *n = palloc(sizeof(KeyActions));
+					n->updateAction = palloc(sizeof(KeyAction));
 					n->updateAction->action = FKCONSTR_ACTION_NOACTION;
 					n->updateAction->cols = NIL;
-					n->deleteAction = (KeyAction *) palloc(sizeof(KeyAction));
+					n->deleteAction = palloc(sizeof(KeyAction));
 					n->deleteAction->action = FKCONSTR_ACTION_NOACTION;
 					n->deleteAction->cols = NIL;
 					$$ = n;
 				}
 		;
 
-key_update: ON UPDATE key_action		{ $$ = $3; }
+key_update: ON UPDATE key_action
+				{
+					if (($3)->cols)
+						ereport(ERROR,
+								(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
+								 errmsg("a column list with %s is only supported for ON DELETE actions",
+										($3)->action == FKCONSTR_ACTION_SETNULL ? "SET NULL" : "SET DEFAULT"),
+								 parser_errposition(@1)));
+					$$ = $3;
+				}
 		;
 
-key_delete: ON DELETE_P key_action		{ $$ = $3; }
+key_delete: ON DELETE_P key_action
+				{
+					$$ = $3;
+				}
 		;
 
 key_action:
 			NO ACTION
 				{
-					KeyAction *n = (KeyAction *) palloc(sizeof(KeyAction));
+					KeyAction *n = palloc(sizeof(KeyAction));
 					n->action = FKCONSTR_ACTION_NOACTION;
 					n->cols = NIL;
 					$$ = n;
 				}
 			| RESTRICT
 				{
-					KeyAction *n = (KeyAction *) palloc(sizeof(KeyAction));
+					KeyAction *n = palloc(sizeof(KeyAction));
 					n->action = FKCONSTR_ACTION_RESTRICT;
 					n->cols = NIL;
 					$$ = n;
 				}
 			| CASCADE
 				{
-					KeyAction *n = (KeyAction *) palloc(sizeof(KeyAction));
+					KeyAction *n = palloc(sizeof(KeyAction));
 					n->action = FKCONSTR_ACTION_CASCADE;
 					n->cols = NIL;
 					$$ = n;
 				}
 			| SET NULL_P opt_column_list
 				{
-					KeyAction *n = (KeyAction *) palloc(sizeof(KeyAction));
+					KeyAction *n = palloc(sizeof(KeyAction));
 					n->action = FKCONSTR_ACTION_SETNULL;
 					n->cols = $3;
 					$$ = n;
 				}
 			| SET DEFAULT opt_column_list
 				{
-					KeyAction *n = (KeyAction *) palloc(sizeof(KeyAction));
+					KeyAction *n = palloc(sizeof(KeyAction));
 					n->action = FKCONSTR_ACTION_SETDEFAULT;
 					n->cols = $3;
 					$$ = n;

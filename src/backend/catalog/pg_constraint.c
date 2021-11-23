@@ -139,6 +139,7 @@ CreateConstraintEntry(const char *constraintName,
 			fkdatums[i] = ObjectIdGetDatum(ffEqOp[i]);
 		conffeqopArray = construct_array(fkdatums, foreignNKeys,
 										 OIDOID, sizeof(Oid), true, TYPALIGN_INT);
+		// FIXME: use null instead of empty array for standard behavior
 		for (i = 0; i < numFkDeleteSetCols; i++)
 			fkdatums[i] = Int16GetDatum(fkDeleteSetCols[i]);
 		confdelsetcolsArray = construct_array(fkdatums, numFkDeleteSetCols,
@@ -1170,8 +1171,9 @@ get_primary_key_attnos(Oid relid, bool deferrableOk, Oid *constraintOid)
 /*
  * Extract data from the pg_constraint tuple of a foreign-key constraint.
  *
- * All arguments save the first are output arguments; fields other than
- * numfks, conkey and confkey can be passed as NULL if caller doesn't need them.
+ * All arguments save the first are output arguments.  All output arguments
+ * other than numfks, conkey and confkey can be passed as NULL if caller
+ * doesn't need them.
  */
 void
 DeconstructFkConstraintRow(HeapTuple tuple, int *numfks,
@@ -1277,10 +1279,12 @@ DeconstructFkConstraintRow(HeapTuple tuple, int *numfks,
 	if (fk_del_set_cols)
 	{
 		int num_delete_cols = 0;
+
+		// FIXME: use null instead of empty array for standard behavior
 		adatum = SysCacheGetAttr(CONSTROID, tuple,
 								 Anum_pg_constraint_confdelsetcols, &isNull);
 		if (isNull)
-			elog(ERROR, "null confdelsetcols for foreign-key constraint %u", constrId);
+			elog(ERROR, "null confdelsetcols for constraint %u", constrId);
 		arr = DatumGetArrayTypeP(adatum);	/* ensure not toasted */
 		if (ARR_NDIM(arr) != 0)
 		{

@@ -484,8 +484,8 @@ static ObjectAddress addFkRecurseReferenced(List **wqueue, Constraint *fkconstra
 											Oid *pfeqoperators, Oid *ppeqoperators, Oid *ffeqoperators,
 											int numfkdelsetcols, int16 *fkdelsetcols,
 											bool old_check_ok);
-static void validateFkOnDeleteSetColumns(int numfks, int16 *fkattnums,
-									   int numfksetcols, int16 *fksetcolsattnums,
+static void validateFkOnDeleteSetColumns(int numfks, const int16 *fkattnums,
+									   int numfksetcols, const int16 *fksetcolsattnums,
 									   List *fksetcols);
 static void addFkRecurseReferencing(List **wqueue, Constraint *fkconstraint,
 									Relation rel, Relation pkrel, Oid indexOid, Oid parentConstr,
@@ -9385,22 +9385,27 @@ ATAddForeignKeyConstraint(List **wqueue, AlteredTableInfo *tab, Relation rel,
  *		Verifies that columns used in ON DELETE SET NULL/DEFAULT (...)
  *		column lists are valid.
  */
-void validateFkOnDeleteSetColumns(
-	int numfks, int16 *fkattnums,
-	int numfksetcols, int16 *fksetcolsattnums,
-	List *fksetcols)
+void
+validateFkOnDeleteSetColumns(int numfks, const int16 *fkattnums,
+							 int numfksetcols, const int16 *fksetcolsattnums,
+							 List *fksetcols)
 {
-	for (int i = 0; i < numfksetcols; i++) {
-		int setcol_attnum = fksetcolsattnums[i];
+	for (int i = 0; i < numfksetcols; i++)
+	{
+		int16 setcol_attnum = fksetcolsattnums[i];
 		bool seen = false;
-		for (int j = 0; j < numfks; j++) {
-			if (fkattnums[j] == setcol_attnum) {
+
+		for (int j = 0; j < numfks; j++)
+		{
+			if (fkattnums[j] == setcol_attnum)
+			{
 				seen = true;
 				break;
 			}
 		}
 
-		if (!seen) {
+		if (!seen)
+		{
 			char *col = strVal(list_nth(fksetcols, i));
 			ereport(ERROR,
 					(errcode(ERRCODE_INVALID_COLUMN_REFERENCE),
@@ -10871,7 +10876,7 @@ ATExecValidateConstraint(List **wqueue, Relation rel, char *constrName,
 /*
  * transformColumnNameList - transform list of column names
  *
- * Lookup each name and return its attnum and, if needed, type OID
+ * Lookup each name and return its attnum and, optionally, type OID
  */
 static int
 transformColumnNameList(Oid relId, List *colList,

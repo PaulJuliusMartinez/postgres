@@ -764,7 +764,7 @@ ERROR:  column "bar" referenced in foreign key constraint does not exist
 CREATE TABLE FKTABLE (tid int, id int, foo int, FOREIGN KEY (tid, id) REFERENCES PKTABLE ON DELETE SET NULL (foo));
 ERROR:  column "foo" referenced in ON DELETE SET action must be part of foreign key
 CREATE TABLE FKTABLE (tid int, id int, foo int, FOREIGN KEY (tid, foo) REFERENCES PKTABLE ON UPDATE SET NULL (foo));
-ERROR:  SET NULL/DEFAULT <column_list> only supported for ON DELETE triggers
+ERROR:  a column list with SET NULL is only supported for ON DELETE actions
 LINE 1: ...oo int, FOREIGN KEY (tid, foo) REFERENCES PKTABLE ON UPDATE ...
                                                              ^
 CREATE TABLE FKTABLE (

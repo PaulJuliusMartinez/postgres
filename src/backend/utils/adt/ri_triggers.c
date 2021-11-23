@@ -72,15 +72,15 @@
 #define RI_PLAN_CHECK_LOOKUPPK			1
 #define RI_PLAN_CHECK_LOOKUPPK_FROM_PK	2
 #define RI_PLAN_LAST_ON_PK				RI_PLAN_CHECK_LOOKUPPK_FROM_PK
-/* these queries are executed against the FK (referencing) table. */
-#define RI_PLAN_ONDELETE_CASCADE	3
-#define RI_PLAN_ONUPDATE_CASCADE	4
+/* these queries are executed against the FK (referencing) table: */
+#define RI_PLAN_ONDELETE_CASCADE		3
+#define RI_PLAN_ONUPDATE_CASCADE		4
 /* the same plan can be used for both ON DELETE and ON UPDATE triggers. */
-#define RI_PLAN_ONTRIGGER_RESTRICT	5
-#define RI_PLAN_ONDELETE_SETNULL	6
-#define RI_PLAN_ONUPDATE_SETNULL	7
-#define RI_PLAN_ONDELETE_SETDEFAULT	8
-#define RI_PLAN_ONUPDATE_SETDEFAULT	9
+#define RI_PLAN_ONTRIGGER_RESTRICT		5	// XXX confusing name
+#define RI_PLAN_ONDELETE_SETNULL		6
+#define RI_PLAN_ONUPDATE_SETNULL		7
+#define RI_PLAN_ONDELETE_SETDEFAULT		8
+#define RI_PLAN_ONUPDATE_SETDEFAULT		9
 
 #define MAX_QUOTED_NAME_LEN  (NAMEDATALEN*2+3)
 #define MAX_QUOTED_REL_NAME_LEN  (MAX_QUOTED_NAME_LEN*2)
@@ -1128,7 +1128,9 @@ ri_set(TriggerData *trigdata, bool is_set_null, int tgkind)
 		appendStringInfo(&querybuf, "UPDATE %s%s SET",
 						 fk_only, fkrelname);
 
-		// Add assignment clauses
+		/*
+		 * Add assignment clauses
+		 */
 		querysep = "";
 		for (int i = 0; i < num_cols_to_set; i++)
 		{
@@ -1140,14 +1142,16 @@ ri_set(TriggerData *trigdata, bool is_set_null, int tgkind)
 			querysep = ",";
 		}
 
-		// Add WHERE clause
+		/*
+		 * Add WHERE clause
+		 */
 		qualsep = "WHERE";
 		for (int i = 0; i < riinfo->nkeys; i++)
 		{
-			Oid		pk_type = RIAttType(pk_rel, riinfo->pk_attnums[i]);
-			Oid		fk_type = RIAttType(fk_rel, riinfo->fk_attnums[i]);
-			Oid		pk_coll = RIAttCollation(pk_rel, riinfo->pk_attnums[i]);
-			Oid		fk_coll = RIAttCollation(fk_rel, riinfo->fk_attnums[i]);
+			Oid			pk_type = RIAttType(pk_rel, riinfo->pk_attnums[i]);
+			Oid			fk_type = RIAttType(fk_rel, riinfo->fk_attnums[i]);
+			Oid			pk_coll = RIAttCollation(pk_rel, riinfo->pk_attnums[i]);
+			Oid			fk_coll = RIAttCollation(fk_rel, riinfo->fk_attnums[i]);
 
 			quoteOneName(attname,
 						 RIAttName(fk_rel, riinfo->fk_attnums[i]));

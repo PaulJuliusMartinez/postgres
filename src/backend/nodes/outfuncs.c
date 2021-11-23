@@ -2871,10 +2871,11 @@ _outPLAssignStmt(StringInfo str, const PLAssignStmt *node)
 	WRITE_LOCATION_FIELD(location);
 }
 
+#if 0
 static void
 _outAlterTableStmt(StringInfo str, const AlterTableStmt *node)
 {
-  WRITE_NODE_TYPE("ALTERTABLE");
+  WRITE_NODE_TYPE("ALTERTABLESTMT");
 
   WRITE_NODE_FIELD(relation);
   WRITE_NODE_FIELD(cmds);
@@ -2885,7 +2886,7 @@ _outAlterTableStmt(StringInfo str, const AlterTableStmt *node)
 static void
 _outAlterTableCmd(StringInfo str, const AlterTableCmd *node)
 {
-  WRITE_NODE_TYPE("ALTERTABLE_CMD");
+  WRITE_NODE_TYPE("ALTERTABLECMD");
 
   WRITE_ENUM_FIELD(subtype, AlterTableType);
   WRITE_STRING_FIELD(name);
@@ -2899,12 +2900,13 @@ _outAlterTableCmd(StringInfo str, const AlterTableCmd *node)
 static void
 _outRoleSpec(StringInfo str, const RoleSpec *node)
 {
-  WRITE_NODE_TYPE("ROLE_SPEC");
+  WRITE_NODE_TYPE("ROLESPEC");
 
   WRITE_ENUM_FIELD(roletype, RoleSpecType);
   WRITE_STRING_FIELD(rolename);
-  WRITE_INT_FIELD(location);
+  WRITE_LOCATION_FIELD(location);
 }
+#endif
 
 static void
 _outFuncCall(StringInfo str, const FuncCall *node)
@@ -4408,6 +4410,7 @@ outNode(StringInfo str, const void *obj)
 			case T_PLAssignStmt:
 				_outPLAssignStmt(str, obj);
 				break;
+#if 0
 			case T_AlterTableStmt:
 				_outAlterTableStmt(str, obj);
 				break;
@@ -4417,6 +4420,7 @@ outNode(StringInfo str, const void *obj)
 			case T_RoleSpec:
 				_outRoleSpec(str, obj);
 				break;
+#endif
 			case T_ColumnDef:
 				_outColumnDef(str, obj);
 				break;
